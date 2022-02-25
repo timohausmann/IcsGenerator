@@ -1,5 +1,5 @@
 # ICSGenerator
-ICS Generator Module for ProcessWire.
+The module can generate basic ICS calendar strings and files.
 
 The module simply extends WireData. It has these properties and default values:
 
@@ -60,7 +60,7 @@ $ics = $icsgen->getICS();
 
 // get path to a temporary .ics file
 // using wire()->files->tempDir
-$path = $icsgen->getFileBy();
+$path = $icsgen->getFile();
 
 // get path to a temporary .ics file by ID
 // this is useful if you need the same ICS multiple times in one request
