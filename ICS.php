@@ -1,4 +1,14 @@
-<?php
+<?php 
+
+// @see https://gist.github.com/jakebellacera/635416
+// This version includes improvements:
+// - added support for DateTime objects
+// - added line break conversion for description (literal \n)
+// - added line length limit (75 characters)
+// - respects DateTimeZone of DateTime
+// - ability to set timezone for string dates (defaults to system timezone)
+// - all dates will be converted to UTC (Z timestamp)
+// Output can be validated here: https://icalendar.org/validator.html
 
 /**
  * This is free and unencumbered software released into the public domain.
@@ -69,6 +79,7 @@
 class ICS {
   const DT_FORMAT = 'Ymd\THis\Z';
 
+  protected $timezone;
   protected $properties = array();
   private $available_properties = array(
     'description',
@@ -79,19 +90,18 @@ class ICS {
     'url'
   );
 
-  public function __construct($props) {
+  public function __construct($props, $timezone) {
+    $this->timezone = $timezone;
     $this->set($props);
   }
 
-  public function set($key, $val = false) {
+  public function set($key, $val = '') {
     if (is_array($key)) {
       foreach ($key as $k => $v) {
         $this->set($k, $v);
       }
-    } else {
-      if (in_array($key, $this->available_properties)) {
-        $this->properties[$key] = $this->sanitize_val($val, $key);
-      }
+    } else if($val != '' && in_array($key, $this->available_properties)) {
+      $this->properties[$key] = $this->sanitize_val($val, $key);
     }
   }
 
@@ -114,6 +124,14 @@ class ICS {
     $props = array();
     foreach($this->properties as $k => $v) {
       $props[strtoupper($k . ($k === 'url' ? ';VALUE=URI' : ''))] = $v;
+    }
+
+    if(isset($props['DESCRIPTION'])) {
+        // convert description line breaks to "\\n"
+        // (the file actually has to contain the literal string \n)
+        $props['DESCRIPTION'] = preg_replace("/\r\n?|\n/", "\\n", $props['DESCRIPTION']);
+        // limit line length to 75 chars
+        $props['DESCRIPTION'] = $this->ical_split('DESCRIPTION', $props['DESCRIPTION']);
     }
 
     // Set some default values
@@ -146,12 +164,50 @@ class ICS {
     return $val;
   }
 
-  private function format_timestamp($timestamp) {
-    $dt = new DateTime($timestamp);
+  private function format_timestamp($dt) {
+
+    $dt = ($dt instanceof DateTime) ? $dt : new DateTime($dt, $this->timezone);
+    $dt->setTimeZone(new DateTimeZone('UTC'));
     return $dt->format(self::DT_FORMAT);
   }
 
   private function escape_string($str) {
     return preg_replace('/([\,;])/','\\\$1', $str);
+  }
+
+  /**
+   * @see https://gist.github.com/hugowetterberg/81747
+   */
+  private function ical_split($preamble, $value) {
+    $value = trim($value);
+    $value = strip_tags($value);
+    $value = preg_replace('/\n+/', ' ', $value);
+    $value = preg_replace('/\s{2,}/', ' ', $value);
+  
+    $preamble_len = strlen($preamble);
+  
+    $lines = array();
+    while (strlen($value)>(75-$preamble_len)) {
+      $space = (75-$preamble_len);
+      $mbcc = $space;
+      while ($mbcc) {
+        $line = mb_strcut($value, 0, $mbcc);
+        $oct = strlen($line);
+        if ($oct > $space) {
+          $mbcc -= $oct-$space;
+        }
+        else {
+          $lines[] = $line;
+          $preamble_len = 1; // Still take the tab into account
+          $value = mb_strcut($value, $mbcc);
+          break;
+        }
+      }
+    }
+    if (!empty($value)) {
+      $lines[] = $value;
+    }
+  
+    return implode("\r\n\t", $lines);
   }
 }

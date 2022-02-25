@@ -1,0 +1,86 @@
+<?php namespace ProcessWire;
+
+class IcsGenerator extends WireData implements Module {
+
+    public static function getModuleInfo() {
+		return array(
+			'title' => 'ICS Generator',
+			'summary' => 'This module can generate ICS files.',
+			'author' => 'Timo Hausmann',
+			'version' => '120',
+			'autoload' => false,
+			'requires' => 'ProcessWire>=300',
+			'icon'     => 'calendar'
+		);
+	}
+
+	/**
+	 * Initialize the module (optional)
+	 *
+	 */
+	public function init() {
+
+        require_once(__DIR__ . '/ICS.php');
+
+        $this->set('timezone', new \DateTimeZone(date_default_timezone_get()));
+		$this->set('date', 'now');
+		$this->set('dateEnd', 'now + 60 minutes');
+		$this->set('summary', 'ICS Calendar File');
+		$this->set('description', '');
+		$this->set('location', '');
+		$this->set('url', '');
+	}
+
+    public function getICS() {
+        return new \ICS(array(
+            'description'   => $this->description,
+            'dtend'         => $this->dateEnd,
+            'dtstart'       => $this->date,
+            'location'      => $this->location,
+            'summary'       => $this->summary,
+            'url'           => $this->url,
+        ), $this->timezone);
+    }
+
+    public function getString() {
+		$ics = $this->getICS();
+        return $ics->to_string();
+    }
+
+    public function getFile() {
+
+        $str = $this->getString();
+
+        $filepath = $this->getTempFilepath();
+        file_put_contents($filepath, $str);
+
+        return $filepath;
+    }
+
+    public function getFileByID($id='') {
+
+        if($id == '') throw new WireException('No ID given');
+
+        $filepath = $this->getTempFilepath("ics-{$id}.ics");
+
+        // if the file has already been generated, return it
+        if(file_exists($filepath)) {
+            return $filepath;
+        }
+
+        $str = $this->getString();
+        file_put_contents($filepath, $str);
+
+        return $filepath;
+    }
+
+    private function getTempFilepath($filename=null) {
+
+        if($filename === null) {
+            $filename = 'ics-'. time() .'-'. mt_rand() .'.ics';
+        }
+
+        $tempDir = wire()->files->tempDir('icsgenerator'); 
+        return $tempDir->get() . $filename;
+    }
+}
