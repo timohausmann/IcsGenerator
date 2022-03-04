@@ -67,6 +67,14 @@ $path = $icsgen->getFile();
 // (same file id will only be created once)
 $path = $icsgen->getFileByID('christmas-2033');
 
+// example: send email with ics file
+$mail = wireMail();
+$mail->attachment($path, 'calendar.ics');
+$mail->to($user->email);
+$mail->subject('ICS Demo');
+$mail->body('This is a ICS demo.');
+$numSent = $mail->send();
+
 ```
 
 Code is heavily based on https://gist.github.com/jakebellacera/635416 with some improvements.
