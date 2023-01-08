@@ -122,18 +122,33 @@ class ICSEvent {
 
   /**
    * Mapping known properties to sanitizers
+   * Simplified version of the rfc5545 Value Data Types
    * @see https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.1
+   * @see https://datatracker.ietf.org/doc/html/rfc5545#section-8.3.4
    */
   const PROPERTIES = [
     'DESCRIPTION' => 'longtext',
     'DTSTAMP' => 'timestamp',
     'DTSTART' => 'timestamp',
     'DTEND' => 'timestamp',
+    'DURATION' => 'text',
     'SUMMARY' => 'text',
-    'LOCATION' => 'text',
+    'LOCATION' => 'rawtext',
     'URL' => 'uri',
     'UID' => 'text',
+    
+    'LAST-MODIFIED' => 'timestamp',
+    'CREATED' => 'timestamp',
+    'PRIORITY' => 'integer',
+    'SEQUENCE' => 'integer',
+    'CLASS' => 'text',
+    'STATUS' => 'text',
+    'TRANSP' => 'text',
+    'RESOURCES' => 'rawtext',
     'RRULE' => 'rawtext',
+    'GEO' => 'rawtext',
+    'ORGANIZER' => 'rawtext',
+    'RECURRENCE-ID' => 'rawtext',
   ];
 
   const DT_FORMAT = 'Ymd\THis\Z';
