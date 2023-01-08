@@ -9,7 +9,7 @@ class IcsGenerator extends WireData implements Module {
             'title' => 'ICS Generator',
             'summary' => 'This module can generate ICS files.',
             'author' => 'Timo Hausmann',
-            'version' => '130',
+            'version' => '200',
             'autoload' => false,
             'requires' => array(
                 'PHP>=5.0.0',
