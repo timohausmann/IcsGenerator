@@ -38,8 +38,7 @@ class IcsGenerator extends WireData implements Module {
     }
 
     public function getICS() {
-
-        return new \ICS($this->events);
+        return new \ICSGen\ICS($this->events);
     }
 
     public function getString() {
@@ -82,5 +81,14 @@ class IcsGenerator extends WireData implements Module {
 
         $tempDir = wire()->files->tempDir('icsgenerator');
         return $tempDir->get() . $filename;
+    }
+
+
+    /**
+     * @param DateTime|string $dt
+     * @param string|null $timezone
+     */
+    public function format_timestamp($dt, $timezone = null) {
+        return \ICSGen\format_timestamp($dt, $timezone);
     }
 }

@@ -1,7 +1,10 @@
 <?php
 
+namespace ICSGen;
+
 // @see https://gist.github.com/jakebellacera/635416
 // This version includes improvements:
+// - added support for multiple events (ICSEvent class)
 // - added support for DateTime objects
 // - added line break conversion for description (literal \n)
 // - added line length limit (75 characters)
@@ -115,13 +118,52 @@ class ICS {
 }
 
 
-class ICSEvent extends ICSBase {
+class ICSEvent {
+
+  /**
+   * Mapping known properties to sanitizers
+   * @see https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.1
+   */
+  const PROPERTIES = [
+    'DESCRIPTION' => 'longtext',
+    'DTSTAMP' => 'timestamp',
+    'DTSTART' => 'timestamp',
+    'DTEND' => 'timestamp',
+    'SUMMARY' => 'text',
+    'LOCATION' => 'text',
+    'URL' => 'uri',
+    'UID' => 'text',
+    'RRULE' => 'rawtext',
+  ];
+
+  const DT_FORMAT = 'Ymd\THis\Z';
+
+  protected $timezone;
+  protected $properties = array();
 
   public function __construct($event) {
 
-    $timezone = isset($event['timezone']) ? $event['timezone'] : null;
-    parent::__construct($timezone);
+    $this->timezone = isset($event['timezone']) ? $event['timezone'] : null;
     $this->set($event);
+  }
+
+  /**
+   * @param array|string $key
+   * @param DateTime|string $val
+   */
+  protected function set($key, $val = '') {
+
+    if (is_array($key)) {
+      foreach ($key as $k => $v) {
+        $this->set($k, $v);
+      }
+      return;
+    }
+
+    $key = strtoupper($key);
+    if ($val != '' && in_array($key, array_keys(ICSEvent::PROPERTIES))) {
+      $this->properties[$key] = sanitize_val($val, $key);
+    }
   }
 
   public function build_ics() {
@@ -130,21 +172,15 @@ class ICSEvent extends ICSBase {
       'BEGIN:VEVENT'
     );
 
+    // defaults for required properties
     $props = array(
-      'DTSTAMP' => $this->format_timestamp('now', $this->timezone),
+      'DTSTAMP' => format_timestamp('now', $this->timezone),
       'UID' => uniqid(),
     );
 
     foreach ($this->properties as $k => $v) {
-      $props[strtoupper($k . ($k === 'url' ? ';VALUE=URI' : ''))] = $v;
-    }
-
-    if (isset($props['DESCRIPTION'])) {
-      // convert description line breaks to "\\n"
-      // (the file actually has to contain the literal string \n)
-      $props['DESCRIPTION'] = preg_replace("/\r\n?|\n/", "\\n", $props['DESCRIPTION']);
-      // limit line length to 75 chars
-      $props['DESCRIPTION'] = $this->ical_split('DESCRIPTION', $props['DESCRIPTION']);
+      $propkey = format_property($k);
+      $props[$propkey] = $v;
     }
 
     // Append properties
@@ -159,115 +195,94 @@ class ICSEvent extends ICSBase {
 }
 
 
-class ICSBase {
+/**
+ * @param DateTime|string $val
+ * @param string $key
+ */
+function sanitize_val($val, string $key) {
 
-  const DT_FORMAT = 'Ymd\THis\Z';
+  $type = ICSEvent::PROPERTIES[$key];
 
-  protected $timezone;
-  protected $properties = array();
+  switch ($type) {
+    case 'timestamp':
+      return format_timestamp($val);
+    case 'longtext':
+      // convert description line breaks to "\\n"
+      // (the file actually has to contain the literal string \n)
+      $val = preg_replace("/\r\n?|\n/", "\\n", $val);
+      // limit line length to 75 chars
+      return ical_split('DESCRIPTION', $val);
+    case 'rawtext':
+      return $val;
+    default:
+      return escape_string($val);
+  }
+}
 
-  /**
-   * @see https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.1
-   */
-  protected $available_properties = array(
-    'description',
-    'dtend',
-    'dtstart',
-    'location',
-    'summary',
-    'url',
-    'rrule',
-    'dtstamp',
-    'uid',
-  );
+/**
+ * Some properties may have comma-seperated parameters
+ */
+function format_property($key) {
+  
+  $property = array($key);
+  $type = ICSEvent::PROPERTIES[$key];
 
-  public function __construct(string $timezone = null) {
-    $this->timezone = $timezone;
+  switch($type) {
+    case 'url':
+      $property[] = 'VALUE=URI';
+      break;
   }
 
-  /**
-   * @param array|string $key
-   * @param DateTime|string $val
-   */
-  protected function set($key, $val = '') {
-    if (is_array($key)) {
-      foreach ($key as $k => $v) {
-        $this->set($k, $v);
-      }
-    } else if ($val != '' && in_array($key, $this->available_properties)) {
-      $this->properties[$key] = $this->sanitize_val($val, $key);
-    }
-  }
+  return implode(';', $property);
+}
+
+/**
+ * @param DateTime|string $dt
+ * @param string|null $timezone
+ */
+function format_timestamp($dt, $timezone = null) {
+
+  $dt = ($dt instanceof \DateTime) ? $dt : new \DateTime($dt, $timezone);
+  $dt->setTimeZone(new \DateTimeZone('UTC'));
+  return $dt->format(ICSEvent::DT_FORMAT);
+}
+
+function escape_string(string $str) {
+  return preg_replace('/([\,;])/', '\\\$1', $str);
+}
 
 
-  /**
-   * @param DateTime|string $val
-   * @param string $key
-   */
-  protected function sanitize_val($val, string $key) {
-    switch ($key) {
-      case 'dtend':
-      case 'dtstamp':
-      case 'dtstart':
-        $val = $this->format_timestamp($val);
+/**
+ * @see https://gist.github.com/hugowetterberg/81747
+ */
+function ical_split(string $preamble, string $value) {
+  $value = trim($value);
+  $value = strip_tags($value);
+  $value = preg_replace('/\n+/', ' ', $value);
+  $value = preg_replace('/\s{2,}/', ' ', $value);
+
+  $preamble_len = strlen($preamble);
+
+  $lines = array();
+  while (strlen($value) > (75 - $preamble_len)) {
+    $space = (75 - $preamble_len);
+    $mbcc = $space;
+    while ($mbcc) {
+      $line = mb_strcut($value, 0, $mbcc);
+      $oct = strlen($line);
+      if ($oct > $space) {
+        $mbcc -= $oct - $space;
+      } else {
+        $lines[] = $line;
+        $preamble_len = 1; // Still take the tab into account
+        $value = mb_strcut($value, $mbcc);
         break;
-      case 'rrule':
-        $val = $val;
-        break;
-      default:
-        $val = $this->escape_string($val);
-    }
-
-    return $val;
-  }
-
-  /**
-   * @param DateTime|string $dt
-   * @param string|null $timezone
-   */
-  protected function format_timestamp($dt, $timezone = null) {
-
-    $dt = ($dt instanceof DateTime) ? $dt : new DateTime($dt, $timezone);
-    $dt->setTimeZone(new DateTimeZone('UTC'));
-    return $dt->format(self::DT_FORMAT);
-  }
-
-  protected function escape_string(string $str) {
-    return preg_replace('/([\,;])/', '\\\$1', $str);
-  }
-
-  /**
-   * @see https://gist.github.com/hugowetterberg/81747
-   */
-  protected function ical_split(string $preamble, string $value) {
-    $value = trim($value);
-    $value = strip_tags($value);
-    $value = preg_replace('/\n+/', ' ', $value);
-    $value = preg_replace('/\s{2,}/', ' ', $value);
-
-    $preamble_len = strlen($preamble);
-
-    $lines = array();
-    while (strlen($value) > (75 - $preamble_len)) {
-      $space = (75 - $preamble_len);
-      $mbcc = $space;
-      while ($mbcc) {
-        $line = mb_strcut($value, 0, $mbcc);
-        $oct = strlen($line);
-        if ($oct > $space) {
-          $mbcc -= $oct - $space;
-        } else {
-          $lines[] = $line;
-          $preamble_len = 1; // Still take the tab into account
-          $value = mb_strcut($value, $mbcc);
-          break;
-        }
       }
     }
-    if (!empty($value)) {
-      $lines[] = $value;
-    }
-
-    return implode("\r\n\t", $lines);
   }
+  if (!empty($value)) {
+    $lines[] = $value;
+  }
+
+  return implode("\r\n\t", $lines);
 }

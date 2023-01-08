@@ -35,7 +35,7 @@ $path = $icsgen->getFile();
 
 // get path to a temporary .ics file by ID
 // this is useful if you need the same ICS multiple times in one request
-// (same file id will only be created once)
+// (the id will be part of the filename and only created if it does not exist yet)
 $path = $icsgen->getFileByID('christmas-2033');
 
 // example: send email with ics file
