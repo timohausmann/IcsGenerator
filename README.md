@@ -23,7 +23,6 @@ $icsgen->events->add([
     'dtstart' =>'2033-12-24 14:00',
     'dtend' => '2033-12-24 16:00',
     'location' => 'Mount Everest',
-    'geo' => '37.386013;-122.082932',
     'url' => 'https://google.com',
 
     'rrule' => 'FREQ=DAILY;COUNT=10',
@@ -65,6 +64,6 @@ $numSent = $mail->send();
 
 ```
 
-Code is heavily based on https://gist.github.com/jakebellacera/635416 with some improvements.
+Code is based on https://gist.github.com/jakebellacera/635416 with some improvements.
 
 PRs are open.

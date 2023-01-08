@@ -122,24 +122,23 @@ class ICSEvent {
 
   /**
    * Mapping known properties to sanitizers
-   * Simplified version of the rfc5545 Value Data Types
+   * Simple solution for different Value Data Types
    * @see https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.1
    * @see https://datatracker.ietf.org/doc/html/rfc5545#section-8.3.4
    */
   const PROPERTIES = [
-    'DESCRIPTION' => 'longtext',
+    'UID' => 'text',
     'DTSTAMP' => 'timestamp',
     'DTSTART' => 'timestamp',
     'DTEND' => 'timestamp',
     'DURATION' => 'text',
     'SUMMARY' => 'text',
+    'DESCRIPTION' => 'longtext',
     'LOCATION' => 'text',
-    'UID' => 'text',
     'URL' => 'uri',
-
     'LAST-MODIFIED' => 'timestamp',
-    'CREATED' => 'timestamp',
     'RECURRENCE-ID' => 'timestamp',
+    'CREATED' => 'timestamp',
     'PRIORITY' => 'integer',
     'SEQUENCE' => 'integer',
     'CLASS' => 'text',
@@ -173,11 +172,13 @@ class ICSEvent {
         $this->set($k, $v);
       }
       return;
-    }
+    } else if (!$val) return;
 
     $key = strtoupper($key);
-    if ($val != '' && in_array($key, array_keys(ICSEvent::PROPERTIES))) {
+    if (in_array($key, array_keys(ICSEvent::PROPERTIES))) {
       $this->properties[$key] = sanitize_val($val, $key);
+    } else if (substr($key, 0, 2) === "X-") {
+      $this->properties[$key] = $val;
     }
   }
 
@@ -278,7 +279,7 @@ function ical_split(string $preamble, string $value) {
   $value = preg_replace('/\n+/', ' ', $value);
   $value = preg_replace('/\s{2,}/', ' ', $value);
 
-  $preamble_len = strlen($preamble);
+  $preamble_len = strlen($preamble) + 1; // "key:"
 
   $lines = array();
   while (strlen($value) > (75 - $preamble_len)) {
