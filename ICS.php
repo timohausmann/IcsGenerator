@@ -133,12 +133,13 @@ class ICSEvent {
     'DTEND' => 'timestamp',
     'DURATION' => 'text',
     'SUMMARY' => 'text',
-    'LOCATION' => 'rawtext',
-    'URL' => 'uri',
+    'LOCATION' => 'text',
     'UID' => 'text',
-    
+    'URL' => 'uri',
+
     'LAST-MODIFIED' => 'timestamp',
     'CREATED' => 'timestamp',
+    'RECURRENCE-ID' => 'timestamp',
     'PRIORITY' => 'integer',
     'SEQUENCE' => 'integer',
     'CLASS' => 'text',
@@ -147,8 +148,7 @@ class ICSEvent {
     'RESOURCES' => 'rawtext',
     'RRULE' => 'rawtext',
     'GEO' => 'rawtext',
-    'ORGANIZER' => 'rawtext',
-    'RECURRENCE-ID' => 'rawtext',
+    'ORGANIZER' => 'email',
   ];
 
   const DT_FORMAT = 'Ymd\THis\Z';
@@ -226,7 +226,9 @@ function sanitize_val($val, string $key) {
       // (the file actually has to contain the literal string \n)
       $val = preg_replace("/\r\n?|\n/", "\\n", $val);
       // limit line length to 75 chars
-      return ical_split('DESCRIPTION', $val);
+      return ical_split($key, $val);
+    case 'email':
+      return 'mailto:' . $val;
     case 'rawtext':
       return $val;
     default:
@@ -238,11 +240,11 @@ function sanitize_val($val, string $key) {
  * Some properties may have comma-seperated parameters
  */
 function format_property($key) {
-  
+
   $property = array($key);
   $type = ICSEvent::PROPERTIES[$key];
 
-  switch($type) {
+  switch ($type) {
     case 'url':
       $property[] = 'VALUE=URI';
       break;

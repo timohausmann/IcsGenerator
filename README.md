@@ -9,18 +9,35 @@ $icsgen = wire()->modules->IcsGenerator;
 
 // add an event
 $icsgen->events->add([
-    'description' => 'Event Title 1',
-    'summary' => 'Event body 1',
+    'summary' => 'Event Title 1',
+    'description' => 'Event body 1',
     'dtstart' =>'2033-12-24 12:00',
-    'dtend' => '2033-12-24 14:00',
+    'duration' => 'PT2H', // ISO.8601.2004
 ]);
 
 // add another event
 $icsgen->events->add([
-    'description' => 'Event Title 2',
-    'summary' => 'Event body 2',
-    'dtstart' =>'2033-12-26 12:00',
-    'dtend' => '2033-12-26 14:00',
+    'uid' => 'custom-entry-id',
+    'summary' => 'Event Title 2',
+    'description' => 'This is a weekly meeting to discuss current projects and priorities. We will also review any new developments or updates. Please come prepared with any updates or questions you may have.',
+    'dtstart' =>'2033-12-24 14:00',
+    'dtend' => '2033-12-24 16:00',
+    'location' => 'Mount Everest',
+    'geo' => '37.386013;-122.082932',
+    'url' => 'https://google.com',
+
+    'rrule' => 'FREQ=DAILY;COUNT=10',
+    'last-modified' => $icsgen->format_timestamp('now'),
+    'created' => $icsgen->format_timestamp('now'),
+    'priority' => 1,
+    'sequence' => 0,
+    'class' => 'PUBLIC',
+    'status' => 'CONFIRMED', // "TENTATIVE", "CONFIRMED", "CANCELLED"
+    'transp' => 'OPAQUE', // "TRANSPARENT", "OPAQUE"
+    'resources' => 'Projector,VCR',
+    'geo' => '37.386013;-122.082932', // LATLONG
+    'organizer' => 'sam@example.com',
+    'recurrence-id' => $icsgen->format_timestamp('yesterday'),
 ]);
 
 // get ICS string
