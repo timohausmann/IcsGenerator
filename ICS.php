@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 // @see https://gist.github.com/jakebellacera/635416
 // This version includes improvements:
@@ -77,85 +77,142 @@
  */
 
 class ICS {
+  public $events;
+
+  public function __construct($events) {
+    $this->events = array();
+
+    foreach ($events as $event) {
+      $this->events[] = new ICSEvent($event);
+    }
+  }
+
+  public function to_string() {
+    $rows = $this->build_ics();
+    return implode("\r\n", $rows);
+  }
+
+  private function build_ics() {
+    // ICS header
+    $ics_out = array(
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//hacksw/handcal//NONSGML v1.0//EN',
+      'CALSCALE:GREGORIAN',
+    );
+
+    // ICS events
+    foreach ($this->events as $event) {
+      $event_out = $event->build_ics();
+      $ics_out = array_merge($ics_out, $event_out);
+    }
+
+    // ICS footer
+    $ics_out[] = 'END:VCALENDAR';
+
+    return $ics_out;
+  }
+}
+
+
+class ICSEvent extends ICSBase {
+
+  public function __construct($event) {
+
+    $timezone = isset($event['timezone']) ? $event['timezone'] : null;
+    parent::__construct($timezone);
+    $this->set($event);
+  }
+
+  public function build_ics() {
+
+    $ics_out = array(
+      'BEGIN:VEVENT'
+    );
+
+    $props = array(
+      'DTSTAMP' => $this->format_timestamp('now', $this->timezone),
+      'UID' => uniqid(),
+    );
+
+    foreach ($this->properties as $k => $v) {
+      $props[strtoupper($k . ($k === 'url' ? ';VALUE=URI' : ''))] = $v;
+    }
+
+    if (isset($props['DESCRIPTION'])) {
+      // convert description line breaks to "\\n"
+      // (the file actually has to contain the literal string \n)
+      $props['DESCRIPTION'] = preg_replace("/\r\n?|\n/", "\\n", $props['DESCRIPTION']);
+      // limit line length to 75 chars
+      $props['DESCRIPTION'] = $this->ical_split('DESCRIPTION', $props['DESCRIPTION']);
+    }
+
+    // Append properties
+    foreach ($props as $k => $v) {
+      $ics_out[] = "$k:$v";
+    }
+
+    $ics_out[] = 'END:VEVENT';
+
+    return $ics_out;
+  }
+}
+
+
+class ICSBase {
+
   const DT_FORMAT = 'Ymd\THis\Z';
 
   protected $timezone;
   protected $properties = array();
-  private $available_properties = array(
+
+  /**
+   * @see https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.1
+   */
+  protected $available_properties = array(
     'description',
     'dtend',
     'dtstart',
     'location',
     'summary',
-    'url'
+    'url',
+    'rrule',
+    'dtstamp',
+    'uid',
   );
 
-  public function __construct($props, $timezone) {
+  public function __construct(string $timezone = null) {
     $this->timezone = $timezone;
-    $this->set($props);
   }
 
-  public function set($key, $val = '') {
+  /**
+   * @param array|string $key
+   * @param DateTime|string $val
+   */
+  protected function set($key, $val = '') {
     if (is_array($key)) {
       foreach ($key as $k => $v) {
         $this->set($k, $v);
       }
-    } else if($val != '' && in_array($key, $this->available_properties)) {
+    } else if ($val != '' && in_array($key, $this->available_properties)) {
       $this->properties[$key] = $this->sanitize_val($val, $key);
     }
   }
 
-  public function to_string() {
-    $rows = $this->build_props();
-    return implode("\r\n", $rows);
-  }
 
-  private function build_props() {
-    // Build ICS properties - add header
-    $ics_props = array(
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//hacksw/handcal//NONSGML v1.0//EN',
-      'CALSCALE:GREGORIAN',
-      'BEGIN:VEVENT'
-    );
-
-    // Build ICS properties - add header
-    $props = array();
-    foreach($this->properties as $k => $v) {
-      $props[strtoupper($k . ($k === 'url' ? ';VALUE=URI' : ''))] = $v;
-    }
-
-    if(isset($props['DESCRIPTION'])) {
-        // convert description line breaks to "\\n"
-        // (the file actually has to contain the literal string \n)
-        $props['DESCRIPTION'] = preg_replace("/\r\n?|\n/", "\\n", $props['DESCRIPTION']);
-        // limit line length to 75 chars
-        $props['DESCRIPTION'] = $this->ical_split('DESCRIPTION', $props['DESCRIPTION']);
-    }
-
-    // Set some default values
-    $props['DTSTAMP'] = $this->format_timestamp('now');
-    $props['UID'] = uniqid();
-
-    // Append properties
-    foreach ($props as $k => $v) {
-      $ics_props[] = "$k:$v";
-    }
-
-    // Build ICS properties - add footer
-    $ics_props[] = 'END:VEVENT';
-    $ics_props[] = 'END:VCALENDAR';
-
-    return $ics_props;
-  }
-
-  private function sanitize_val($val, $key = false) {
-    switch($key) {
+  /**
+   * @param DateTime|string $val
+   * @param string $key
+   */
+  protected function sanitize_val($val, string $key) {
+    switch ($key) {
       case 'dtend':
       case 'dtstamp':
       case 'dtstart':
         $val = $this->format_timestamp($val);
+        break;
+      case 'rrule':
+        $val = $val;
         break;
       default:
         $val = $this->escape_string($val);
@@ -164,39 +221,42 @@ class ICS {
     return $val;
   }
 
-  private function format_timestamp($dt) {
+  /**
+   * @param DateTime|string $dt
+   * @param string|null $timezone
+   */
+  protected function format_timestamp($dt, $timezone = null) {
 
-    $dt = ($dt instanceof DateTime) ? $dt : new DateTime($dt, $this->timezone);
+    $dt = ($dt instanceof DateTime) ? $dt : new DateTime($dt, $timezone);
     $dt->setTimeZone(new DateTimeZone('UTC'));
     return $dt->format(self::DT_FORMAT);
   }
 
-  private function escape_string($str) {
-    return preg_replace('/([\,;])/','\\\$1', $str);
+  protected function escape_string(string $str) {
+    return preg_replace('/([\,;])/', '\\\$1', $str);
   }
 
   /**
    * @see https://gist.github.com/hugowetterberg/81747
    */
-  private function ical_split($preamble, $value) {
+  protected function ical_split(string $preamble, string $value) {
     $value = trim($value);
     $value = strip_tags($value);
     $value = preg_replace('/\n+/', ' ', $value);
     $value = preg_replace('/\s{2,}/', ' ', $value);
-  
+
     $preamble_len = strlen($preamble);
-  
+
     $lines = array();
-    while (strlen($value)>(75-$preamble_len)) {
-      $space = (75-$preamble_len);
+    while (strlen($value) > (75 - $preamble_len)) {
+      $space = (75 - $preamble_len);
       $mbcc = $space;
       while ($mbcc) {
         $line = mb_strcut($value, 0, $mbcc);
         $oct = strlen($line);
         if ($oct > $space) {
-          $mbcc -= $oct-$space;
-        }
-        else {
+          $mbcc -= $oct - $space;
+        } else {
           $lines[] = $line;
           $preamble_len = 1; // Still take the tab into account
           $value = mb_strcut($value, $mbcc);
@@ -207,7 +267,7 @@ class ICS {
     if (!empty($value)) {
       $lines[] = $value;
     }
-  
+
     return implode("\r\n\t", $lines);
   }
 }
