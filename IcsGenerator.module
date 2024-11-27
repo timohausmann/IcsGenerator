@@ -1,49 +1,48 @@
-<?php namespace ProcessWire;
+<?php
+
+namespace ProcessWire;
 
 class IcsGenerator extends WireData implements Module {
 
     public static function getModuleInfo() {
-		return array(
-			'title' => 'ICS Generator',
-			'summary' => 'This module can generate ICS files.',
-			'author' => 'Timo Hausmann',
-			'version' => '120',
-			'autoload' => false,
-			'requires' => 'ProcessWire>=300',
-			'icon'     => 'calendar'
-		);
-	}
+        return array(
+            'title' => 'ICS Generator',
+            'summary' => 'This module can generate ICS files.',
+            'author' => 'Timo Hausmann',
+            'version' => '200',
+            'autoload' => false,
+            'requires' => array(
+                'PHP>=5.0.0',
+                'ProcessWire>=3.0.0',
+            ),
+            'icon' => 'calendar',
+        );
+    }
 
-	/**
-	 * Initialize the module (optional)
-	 *
-	 */
-	public function init() {
-
+    public function init() {
         require_once(__DIR__ . '/ICS.php');
+        $this->set('events', new WireArray());
+    }
 
-        $this->set('timezone', new \DateTimeZone(date_default_timezone_get()));
-		$this->set('date', 'now');
-		$this->set('dateEnd', 'now + 60 minutes');
-		$this->set('summary', 'ICS Calendar File');
-		$this->set('description', '');
-		$this->set('location', '');
-		$this->set('url', '');
-	}
+    public function getDefaultEvent() {
+        return [
+            'timezone' => new \DateTimeZone(date_default_timezone_get()),
+            'dtstart' => 'now',
+            'dtend' => 'now + 60 minutes',
+            'summary' => 'ICS Calendar File',
+            'description' => '',
+            'location' => '',
+            'url' => '',
+            'rrule' => '',
+        ];
+    }
 
     public function getICS() {
-        return new \ICS(array(
-            'description'   => $this->description,
-            'dtend'         => $this->dateEnd,
-            'dtstart'       => $this->date,
-            'location'      => $this->location,
-            'summary'       => $this->summary,
-            'url'           => $this->url,
-        ), $this->timezone);
+        return new \ICSGen\ICS($this->events);
     }
 
     public function getString() {
-		$ics = $this->getICS();
+        $ics = $this->getICS();
         return $ics->to_string();
     }
 
@@ -57,14 +56,14 @@ class IcsGenerator extends WireData implements Module {
         return $filepath;
     }
 
-    public function getFileByID($id='') {
+    public function getFileByID($id = '') {
 
-        if($id == '') throw new WireException('No ID given');
+        if ($id == '') throw new WireException('No ID given');
 
         $filepath = $this->getTempFilepath("ics-{$id}.ics");
 
         // if the file has already been generated, return it
-        if(file_exists($filepath)) {
+        if (file_exists($filepath)) {
             return $filepath;
         }
 
@@ -74,13 +73,22 @@ class IcsGenerator extends WireData implements Module {
         return $filepath;
     }
 
-    private function getTempFilepath($filename=null) {
+    private function getTempFilepath($filename = null) {
 
-        if($filename === null) {
-            $filename = 'ics-'. time() .'-'. mt_rand() .'.ics';
+        if ($filename === null) {
+            $filename = 'ics-' . time() . '-' . mt_rand() . '.ics';
         }
 
-        $tempDir = wire()->files->tempDir('icsgenerator'); 
+        $tempDir = wire()->files->tempDir('icsgenerator');
         return $tempDir->get() . $filename;
+    }
+
+
+    /**
+     * @param DateTime|string $dt
+     * @param string|null $timezone
+     */
+    public function format_timestamp($dt, $timezone = null) {
+        return \ICSGen\format_timestamp($dt, $timezone);
     }
 }
