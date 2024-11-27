@@ -1,7 +1,11 @@
 # ICSGenerator
-The module can generate basic ICS calendar strings and files.
+The module can generate basic ICS calendar strings and files for ProcessWire.
 
 Add data to the `events` property ([WireArray](https://processwire.com/api/ref/wire-array/)) for one or more events.
+
+## Links
+* [Module Directory](https://processwire.com/modules/ics-generator/)
+* [Support Forum](https://processwire.com/talk/topic/26817-ics-generator/)
 
 ## Basic example
 
