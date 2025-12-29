@@ -176,7 +176,7 @@ class ICSEvent {
 
     $key = strtoupper($key);
     if (in_array($key, array_keys(ICSEvent::PROPERTIES))) {
-      $this->properties[$key] = sanitize_val($val, $key);
+      $this->properties[$key] = sanitize_val($val, $key, $this->timezone);
     } else if (substr($key, 0, 2) === "X-") {
       $this->properties[$key] = $val;
     }
@@ -214,14 +214,15 @@ class ICSEvent {
 /**
  * @param DateTime|string $val
  * @param string $key
+ * @param \DateTimeZone|null $timezone
  */
-function sanitize_val($val, string $key) {
+function sanitize_val($val, string $key, $timezone = null) {
 
   $type = ICSEvent::PROPERTIES[$key];
 
   switch ($type) {
     case 'timestamp':
-      return format_timestamp($val);
+      return format_timestamp($val, $timezone);
     case 'longtext':
       // convert description line breaks to "\\n"
       // (the file actually has to contain the literal string \n)
@@ -256,7 +257,7 @@ function format_property($key) {
 
 /**
  * @param DateTime|string $dt
- * @param string|null $timezone
+ * @param \DateTimeZone|null $timezone
  */
 function format_timestamp($dt, $timezone = null) {
 
