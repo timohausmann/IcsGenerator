@@ -9,10 +9,10 @@ class IcsGenerator extends WireData implements Module {
             'title' => 'ICS Generator',
             'summary' => 'This module can generate ICS files.',
             'author' => 'Timo Hausmann',
-            'version' => '200',
+            'version' => '210',
             'autoload' => false,
             'requires' => array(
-                'PHP>=5.0.0',
+                'PHP>=7.0.0',
                 'ProcessWire>=3.0.0',
             ),
             'icon' => 'calendar',
@@ -24,71 +24,52 @@ class IcsGenerator extends WireData implements Module {
         $this->set('events', new WireArray());
     }
 
-    public function getDefaultEvent() {
-        return [
-            'timezone' => new \DateTimeZone(date_default_timezone_get()),
-            'dtstart' => 'now',
-            'dtend' => 'now + 60 minutes',
-            'summary' => 'ICS Calendar File',
-            'description' => '',
-            'location' => '',
-            'url' => '',
-            'rrule' => '',
-        ];
-    }
-
-    public function getICS() {
+    /**
+     * Returns the ICS object
+     * @return \ICSGen\ICS
+     */
+    public function getICS(): \ICSGen\ICS {
         return new \ICSGen\ICS($this->events);
     }
 
-    public function getString() {
+    /**
+     * Returns the ICS file content as a string
+     * @return string
+     */
+    public function getString(): string {
         $ics = $this->getICS();
         return $ics->to_string();
     }
 
-    public function getFile() {
-
-        $str = $this->getString();
-
-        $filepath = $this->getTempFilepath();
-        file_put_contents($filepath, $str);
-
-        return $filepath;
-    }
-
-    public function getFileByID($id = '') {
-
-        if ($id == '') throw new WireException('No ID given');
-
-        $filepath = $this->getTempFilepath("ics-{$id}.ics");
-
-        // if the file has already been generated, return it
-        if (file_exists($filepath)) {
-            return $filepath;
-        }
-
-        $str = $this->getString();
-        file_put_contents($filepath, $str);
-
-        return $filepath;
-    }
-
-    private function getTempFilepath($filename = null) {
+    /**
+     * Creates a temporary ProcessWire file and returns it's file path
+     * @param string $filename
+     * @return string
+     * @throws WireException on file write error
+     */
+    public function getFile($filename = null): string {
 
         if ($filename === null) {
-            $filename = 'ics-' . time() . '-' . mt_rand() . '.ics';
+            $filename = 'ics-' . bin2hex(random_bytes(8)) . '.ics';
         }
 
-        $tempDir = wire()->files->tempDir('icsgenerator');
-        return $tempDir->get() . $filename;
+        $str = $this->getString();
+        $filepath = $this->getTempFilepath($filename);
+        $bytes = wire()->files->filePutContents($filepath, $str, LOCK_EX);
+
+        if ($bytes === false) {
+            throw new WireException('Failed to write ICS file');
+        }
+
+        return $filepath;
     }
 
-
     /**
-     * @param DateTime|string $dt
-     * @param string|null $timezone
+     * Returns a temporary file path
+     * @return string
      */
-    public function format_timestamp($dt, $timezone = null) {
-        return \ICSGen\format_timestamp($dt, $timezone);
+    private function getTempFilepath(string $filename): string {
+        $tempDir = wire()->files->tempDir('icsgenerator');
+        return $tempDir->get() . $filename;
     }
 }
