@@ -82,7 +82,7 @@ namespace ICSGen;
 class ICS {
   public $events;
 
-  public function __construct($events) {
+  public function __construct(iterable $events = []) {
     $this->events = array();
 
     foreach ($events as $event) {
@@ -165,14 +165,14 @@ class ICSEvent {
    * @param array|string $key
    * @param DateTime|string $val
    */
-  protected function set($key, $val = '') {
+  protected function set($key, $val = null) {
 
     if (is_array($key)) {
       foreach ($key as $k => $v) {
         $this->set($k, $v);
       }
       return;
-    } else if (!$val) return;
+    } else if ($val === null) return;
 
     $key = strtoupper($key);
     if (in_array($key, array_keys(ICSEvent::PROPERTIES))) {
@@ -184,14 +184,18 @@ class ICSEvent {
 
   public function build_ics() {
 
+    if (!isset($this->properties['DTSTART'])) {
+        throw new \InvalidArgumentException('DTSTART is required');
+    }
+
     $ics_out = array(
       'BEGIN:VEVENT'
     );
 
-    // defaults for required properties
+    // default properties
     $props = array(
       'DTSTAMP' => format_timestamp('now', $this->timezone),
-      'UID' => uniqid(),
+      'UID' => uniqid('', true) . '@icsgenerator',
     );
 
     foreach ($this->properties as $k => $v) {
@@ -230,8 +234,14 @@ function sanitize_val($val, string $key, $timezone = null) {
       // limit line length to 75 chars
       return ical_split($key, $val);
     case 'email':
-      return 'mailto:' . $val;
+      // if no ":" is present, prepend "mailto:".
+      // otherwise, take the rawtext to support content like 
+      // ORGANIZER;CN=John Smith:MAILTO:jsmith@host1.com
+      return (strpos($val, ':') !== false)
+        ? $val
+        : 'mailto:' . $val;
     case 'rawtext':
+    case 'uri':
       return $val;
     default:
       return escape_string($val);
@@ -275,6 +285,11 @@ function escape_string(string $str) {
  * @see https://gist.github.com/hugowetterberg/81747
  */
 function ical_split(string $preamble, string $value) {
+
+  if (!extension_loaded('mbstring')) {
+    throw new \RuntimeException('mbstring extension required for ICS line folding');
+}
+
   $value = trim($value);
   $value = strip_tags($value);
   $value = preg_replace('/\n+/', ' ', $value);

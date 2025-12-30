@@ -4,6 +4,7 @@ A ProcessWire module to generate ICS calendar strings and files. Events are mana
 ## Links
 * [Module Directory](https://processwire.com/modules/ics-generator/)
 * [Support Forum](https://processwire.com/talk/topic/26817-ics-generator/)
+* [ICS Validator](https://icalendar.org/validator.html)
 
 ---
 
@@ -68,7 +69,7 @@ Some calendar clients may not support all properties.
 | `RRULE` | rawtext | Recurrence rule (e.g., `FREQ=DAILY;COUNT=10`) |
 | `STATUS` | text | `TENTATIVE`, `CONFIRMED`, `CANCELLED` |
 | `PRIORITY` | integer | 1 (High) to 9 (Low) |
-| `ORGANIZER` | email | Organizer email address |
+| `ORGANIZER` | email | Organizer email address (e.g. `jsmith@host1.com` or `CN=John Smith:MAILTO:jsmith@host1.com`) |
 | `GEO` | rawtext | `LAT;LONG` (e.g., `37.38;-122.08`) |
 | `UID` | text | Unique identifier for the event |
 | `CLASS` | text | `PUBLIC`, `PRIVATE`, `CONFIDENTIAL` |
@@ -79,7 +80,7 @@ Some calendar clients may not support all properties.
 | `CREATED` | timestamp | Original creation timestamp |
 | `LAST-MODIFIED`| timestamp | Last update timestamp |
 | `SEQUENCE` | integer | Revision sequence number |
-| `X-*` | rawtext | Custom non-standard properties (unsanitized) |
+| `X-*` | rawtext | Custom non-standard properties (completely unsanitized) |
 
 ## Timestamps
 * All timestamp inputs accept PHP `DateTime` objects or strings (parsed via `new DateTime()`).
