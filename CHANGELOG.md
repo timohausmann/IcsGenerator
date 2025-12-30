@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-12-30
+
+### Added
+
+- iterable type for ICS constructor argument
+- required check for property `DTSTART`
+
+### Fixed
+
+- Allow `0`, `''` and `false` property values
+- Check if `mbstring` php extension is loaded before using `mb_strcut()`
+
+### Changed
+
+- Module now requires PHP 7.1
+- Improved README: compressed examples, property table
+- Improved unique ID
+- Only prepend `mailto:` to organizer value if no `:` is present, now supporting clear name (see ORGANIZER property)
+
 ## [2.1.0] - 2025-12-29
 
 ### Added
